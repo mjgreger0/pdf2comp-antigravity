@@ -1,0 +1,44 @@
+services:
+  llm-service:
+    image: vllm/vllm-openai:latest
+    container_name: llm-service
+    runtime: nvidia
+    command: --model /models/Qwen/Qwen2.5-Coder-32B-Instruct --api-key sk-antigravity --host 0.0.0.0 --port 8000 --gpu-memory-utilization 0.9 --max-model-len 8192
+    ports:
+      - "8000:8000"
+    volumes:
+      - /data/projects/ai/huggingface/models:/models
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - HF_HOME=/models/cache
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  trainer-service:
+    image: unsloth/unsloth-notebook:latest
+    container_name: trainer-service
+    runtime: nvidia
+    volumes:
+      - /data/projects/ai/huggingface/models:/models
+      - ../src:/app/src
+      - ../data:/app/data
+      - ../:/app/project
+    environment:
+      - HF_HOME=/models/cache
+      - CUDA_VISIBLE_DEVICES=1
+    working_dir: /app/project
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # Keep the container running for exec
+    command: tail -f /dev/null

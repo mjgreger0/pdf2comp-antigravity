@@ -8,11 +8,11 @@ This task list tracks the implementation progress of the project. Agents should 
     - [x] Implement `DBManager` (`src/database/db_manager.py`)
     - [x] Create Pydantic data models (`src/models/data_models.py`)
 
-- [ ] **Phase 2: Backend Logic & LLM Integration**
-    - [ ] Implement `LLMClient` (`src/backend/llm_client.py`)
-    - [ ] Implement `IngestionEngine` (`src/backend/ingestion.py`)
-    - [ ] Implement `CorrectionLogger` (`src/backend/correction_logger.py`)
-    - [ ] Create Docker Compose configuration (`docker/docker-compose.yml`)
+- [x] **Phase 2: Backend Logic & LLM Integration**
+    - [x] Implement `LLMClient` (`src/backend/llm_client.py`)
+    - [x] Implement `IngestionEngine` (`src/backend/ingestion.py`)
+    - [x] Implement `CorrectionLogger` (`src/backend/correction_logger.py`)
+    - [x] Create Docker Compose configuration (`docker/docker-compose.yml`)
 
 - [ ] **Phase 3: GUI Implementation**
     - [ ] Create Main Window layout (`src/gui/main_window.py`)
