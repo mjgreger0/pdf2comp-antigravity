@@ -2,11 +2,11 @@
 
 This task list tracks the implementation progress of the project. Agents should update this file as they complete tasks.
 
-- [ ] **Phase 1: Project Setup & Database**
-    - [ ] Initialize project structure (`src`, `tests`, `docker`, `prompts`)
-    - [ ] Create SQLite schema (`src/database/schema.sql`)
-    - [ ] Implement `DBManager` (`src/database/db_manager.py`)
-    - [ ] Create Pydantic data models (`src/models/data_models.py`)
+- [x] **Phase 1: Project Setup & Database**
+    - [x] Initialize project structure (`src`, `tests`, `docker`, `prompts`)
+    - [x] Create SQLite schema (`src/database/schema.sql`)
+    - [x] Implement `DBManager` (`src/database/db_manager.py`)
+    - [x] Create Pydantic data models (`src/models/data_models.py`)
 
 - [ ] **Phase 2: Backend Logic & LLM Integration**
     - [ ] Implement `LLMClient` (`src/backend/llm_client.py`)
