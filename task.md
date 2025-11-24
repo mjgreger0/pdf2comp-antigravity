@@ -14,12 +14,12 @@ This task list tracks the implementation progress of the project. Agents should 
     - [x] Implement `CorrectionLogger` (`src/backend/correction_logger.py`)
     - [x] Create Docker Compose configuration (`docker/docker-compose.yml`)
 
-- [ ] **Phase 3: GUI Implementation**
-    - [ ] Create Main Window layout (`src/gui/main_window.py`)
-    - [ ] Implement PDF Viewer with highlighting (`src/gui/pdf_viewer.py`)
-    - [ ] Implement Component Editor (`src/gui/editors/component_editor.py`)
-    - [ ] Implement Package Editor (`src/gui/editors/package_editor.py`)
-    - [ ] Implement Pin Editor (`src/gui/editors/pin_editor.py`)
+- [x] **Phase 3: GUI Implementation**
+    - [x] Create Main Window layout (`src/gui/main_window.py`)
+    - [x] Implement PDF Viewer with highlighting (`src/gui/pdf_viewer.py`)
+    - [x] Implement Component Editor (`src/gui/editors/component_editor.py`)
+    - [x] Implement Package Editor (`src/gui/editors/package_editor.py`)
+    - [x] Implement Pin Editor (`src/gui/editors/pin_editor.py`)
 
 - [ ] **Phase 4: Output Generation**
     - [ ] Implement Symbol Generator (`src/generators/symbol_generator.py`)
