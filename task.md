@@ -30,3 +30,9 @@ This task list tracks the implementation progress of the project. Agents should 
     - [x] Implement End-to-End Tests (`tests/test_e2e.py`)
     - [x] Create Run Script (`scripts/run_app.sh`)
     - [x] Verify full workflow
+
+- [/] **Phase 6: Optimization & Bug Fixes**
+    - [x] Improve IngestionEngine Sectioning (`src/backend/ingestion.py`)
+    - [x] Update Extractor to use Sections (`src/backend/extractor.py`)
+    - [x] Update GUI to pass Sections (`src/gui/main_window.py`)
+    - [x] Verify Context Handling (`tests/test_context_handling.py`)

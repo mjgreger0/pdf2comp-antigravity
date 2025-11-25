@@ -8,40 +8,40 @@ This plan outlines the integration of all components and the verification of the
 
 ## Proposed Changes
 
-### Integration
-#### [MODIFY] [main_window.py](file:///data/home/mgreger/proj/pdf2comp-antigravity/src/gui/main_window.py)
-- **Functionality**: Connect GUI to Backend and Generators.
+### Backend
+#### [MODIFY] [ingestion.py](file:///data/home/mgreger/proj/pdf2comp-antigravity/src/backend/ingestion.py)
+- **Functionality**: Improve section identification to return structured data.
 - **Changes**:
-    - Add `IngestionEngine` and `LLMClient` initialization.
-    - Implement "Open PDF" action to trigger ingestion.
-    - Implement "Generate" action to trigger generators.
-    - Implement "Save Correction" to trigger `CorrectionLogger`.
+    - Update `_identify_sections` to be more robust.
+    - Ensure it returns a dictionary with keys like "pin_configuration", "package_dimensions", etc. containing the relevant text.
+
+#### [MODIFY] [extractor.py](file:///data/home/mgreger/proj/pdf2comp-antigravity/src/backend/extractor.py)
+- **Functionality**: Use identified sections to construct a focused prompt.
+- **Changes**:
+    - Update `extract_all` to accept `sections` dictionary.
+    - Construct the prompt by including only relevant sections for each extraction task (or all relevant sections if doing one pass).
+    - Remove the hardcoded 50k truncation if sections are used, or apply it per section.
+
+#### [MODIFY] [main_window.py](file:///data/home/mgreger/proj/pdf2comp-antigravity/src/gui/main_window.py)
+- **Functionality**: Pass sections to the extractor.
+- **Changes**:
+    - In `process_with_llm`, use `self.ingestion_engine.process_file` to get sections.
+    - Pass `sections` to `self.extractor.extract_all`.
 
 ### Tests
-#### [NEW] [test_e2e.py](file:///data/home/mgreger/proj/pdf2comp-antigravity/tests/test_e2e.py)
-- **Class**: `TestEndToEnd`
-- **Functionality**: Simulates the full workflow.
+#### [NEW] [test_context_handling.py](file:///data/home/mgreger/proj/pdf2comp-antigravity/tests/test_context_handling.py)
+- **Functionality**: Verifies that the system handles large documents by selecting sections.
 - **Steps**:
-    1.  Mock `LLMClient` responses.
-    2.  Run `IngestionEngine` on a sample file.
-    3.  Simulate data extraction and population of models.
-    4.  Simulate user modification of data.
-    5.  Run Generators (`SymbolGenerator`, `FootprintGenerator`, `ModelGenerator`).
-    6.  Verify output files exist and contain expected data.
-
-### Scripts
-#### [NEW] [run_app.sh](file:///data/home/mgreger/proj/pdf2comp-antigravity/scripts/run_app.sh)
-- **Functionality**: Sets up environment and launches the application.
-- **Content**:
-    - Set `PYTHONPATH`.
-    - Run `python src/gui/main_window.py`.
+    1.  Create a large dummy markdown content with distinct sections.
+    2.  Run `IngestionEngine` to identify sections.
+    3.  Run `ContentExtractor` (mocking LLM) to verify it receives the correct sections in the prompt.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `pytest tests/test_e2e.py`.
+- Run `pytest tests/test_context_handling.py`.
 
 ### Manual Verification
-- Run `scripts/run_app.sh`.
-- Open a PDF (if available).
-- Verify UI elements populate (using dummy data if LLM is not running).
+- Open a large datasheet PDF (or corresponding MD).
+- Click "Process with LLM".
+- Verify in the logs that the prompt contains the specific sections (Pin Configuration, etc.) and not just the first 50k chars.

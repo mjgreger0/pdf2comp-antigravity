@@ -47,5 +47,22 @@ PASS: STEP file exists
 > [!NOTE]
 > The `ModelGenerator` requires `cadquery` to be installed in the environment (`pip install cadquery`). This has been installed and verified.
 
-## Next Steps
-- Proceed to Phase 5: Integration & Testing.
+## LLM Extraction Implementation
+- **File**: `src/backend/extractor.py`
+- **Functionality**: Extracts structured component data from text using LLM.
+- **Integration**:
+    - `MainWindow` now initializes `ContentExtractor`.
+    - `process_with_llm` retrieves content (from `.md` or `.json` if available) and calls `extractor.extract_all`.
+    - Populates `Component`, `Package`, and `Pin` models with extracted data.
+- **Verification**:
+    - Verified via `tests/test_e2e.py` which mocks the LLM response and asserts data population.
+
+## Context Handling Optimization
+- **Goal**: Prevent LLM context window overflow by selectively feeding relevant sections.
+- **Implementation**:
+    - `IngestionEngine` (`src/backend/ingestion.py`) now identifies sections (Pin Configuration, Package Dimensions, etc.) using regex heuristics.
+    - `ContentExtractor` (`src/backend/extractor.py`) constructs a focused prompt using these sections instead of the raw full text.
+    - `MainWindow` (`src/gui/main_window.py`) orchestrates the flow by passing identified sections to the extractor.
+- **Verification**:
+    - `tests/test_context_handling.py` verifies that sections are correctly identified and passed to the LLM prompt.
+    - Test passed: `tests/test_context_handling.py .. [100%]`

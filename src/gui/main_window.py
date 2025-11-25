@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QSplitter, QTreeWidget, QTreeWidgetItem, QTabWidget,
                                QFileDialog, QToolBar, QMessageBox, QMenu, QStatusBar, QLabel)
 from PySide6.QtGui import QAction
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSettings
 
 from src.gui.pdf_viewer import PdfViewer
 from src.gui.editors.component_editor import ComponentEditor
@@ -14,6 +14,7 @@ from src.gui.editors.pin_editor import PinEditor
 
 from src.backend.ingestion import IngestionEngine
 from src.backend.llm_client import LLMClient
+from src.backend.extractor import ContentExtractor
 from src.backend.correction_logger import CorrectionLogger
 from src.database.db_manager import DBManager
 from src.models.data_models import Component, Package, Pin, Datasheet
@@ -29,12 +30,16 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("MinerU to KiCAD Component Generator")
         self.resize(1600, 900)
 
+        # Initialize Settings
+        self.settings = QSettings("Antigravity", "MinerU2KiCAD")
+
         # Initialize Backend Components
         self.db_manager = DBManager("component_data.db") # Use local DB for now
         self.ingestion_engine = IngestionEngine()
         llm_base_url = os.getenv("LLM_BASE_URL", "http://localhost:8000/v1")
         llm_model = os.getenv("LLM_MODEL", "Qwen/Qwen2.5-Coder-32B-Instruct")
         self.llm_client = LLMClient(base_url=llm_base_url, model_name=llm_model)
+        self.extractor = ContentExtractor(self.llm_client)
         self.correction_logger = CorrectionLogger(self.db_manager)
         
         # Initialize Generators
@@ -47,6 +52,7 @@ class MainWindow(QMainWindow):
         self.current_component: Component = None
         self.current_package: Package = None
         self.current_pins: list[Pin] = []
+        self.current_file_path: str = None
 
         # UI Setup
         self._setup_ui()
@@ -54,6 +60,9 @@ class MainWindow(QMainWindow):
         self._create_menu()
         self._create_toolbar()
         self._create_statusbar()
+
+        # Restore State
+        self.load_last_file()
 
     def _setup_ui(self):
         # Central Widget
@@ -146,12 +155,24 @@ class MainWindow(QMainWindow):
         if file_path:
             self.load_datasheet(file_path)
 
+    def load_last_file(self):
+        last_file = self.settings.value("last_opened_file")
+        if last_file and os.path.exists(last_file):
+            self.update_status(f"Restoring last opened file: {last_file}")
+            self.load_datasheet(last_file)
+
     def load_datasheet(self, file_path):
         # 1. Load PDF in Viewer
         self.update_status(f"Loading PDF: {os.path.basename(file_path)}...")
         self.pdf_viewer.load_document(file_path)
         self.update_status(f"Loaded: {os.path.basename(file_path)}. Ready to process.")
         
+        # Store file path
+        self.current_file_path = file_path
+        
+        # Save to settings
+        self.settings.setValue("last_opened_file", file_path)
+
         # Initialize current datasheet object
         self.current_datasheet = Datasheet(
             filename=os.path.basename(file_path),
@@ -166,48 +187,56 @@ class MainWindow(QMainWindow):
         self.project_tree.clear()
 
     def process_with_llm(self):
-        if not self.current_datasheet:
+        if not self.current_datasheet or not self.current_file_path:
             QMessageBox.warning(self, "Warning", "Please load a PDF first.")
             return
 
         self.update_status("Processing with LLM... (This may take a moment)")
         
-        # In a real app, this would be async to not freeze UI
         try:
-            # Simulate processing - In real integration, we'd call ingestion_engine and llm_client
-            # For this phase, we'll just populate with dummy data if not implemented fully
-            # But the task says "Ensure GUI calls Backend".
+            # Check for corresponding .md file (MinerU output)
+            md_path = self.current_file_path.replace('.pdf', '.md')
+            content = ""
+            sections = {}
             
-            # TODO: Implement actual LLM call here. 
-            # For now, we will just create a dummy component to show integration points.
+            if os.path.exists(md_path):
+                self.update_status(f"Reading content from {os.path.basename(md_path)}...")
+                # Use IngestionEngine to process the file
+                ingestion_result = self.ingestion_engine.process_file(md_path)
+                content = ingestion_result.get("content", "")
+                sections = ingestion_result.get("sections", {})
+            else:
+                # Fallback: Check if there's a JSON file
+                json_path = self.current_file_path.replace('.pdf', '.json')
+                if os.path.exists(json_path):
+                    self.update_status(f"Reading content from {os.path.basename(json_path)}...")
+                    ingestion_result = self.ingestion_engine.process_file(json_path)
+                    content = str(ingestion_result.get("raw_data", "")) # Convert JSON to string for now
+                    sections = ingestion_result.get("sections", {})
+                
+                if not content:
+                    # If no pre-processed content, we can't do much without running MinerU.
+                    QMessageBox.warning(self, "Missing Content", 
+                                        f"Could not find MinerU output (.md) for {self.current_datasheet.filename}.\n"
+                                        "Please run the ingestion script first.\n\n"
+                                        "Attempting to proceed with empty content (will likely fail to extract data).")
+                    self.update_status("Processing aborted: No content found.")
+                    return
+
+            # Call Extractor
+            self.update_status("Sending content to LLM...")
+            extracted_data = self.extractor.extract_all(content, datasheet_id=1, sections=sections)
             
-            # DEBUG: Print prompt and response
-            print("--- LLM DEBUG INFO ---")
-            print("Prompt: [Simulated Prompt: Extract component data from PDF]")
-            
-            self.current_component = Component(
-                datasheet_id=1,
-                part_number="EXAMPLE-PART",
-                description="An example component",
-                manufacturer="Example Corp"
-            )
-            
-            self.current_package = Package(
-                component_id=1,
-                name="SOIC-8",
-                package_type="SOIC",
-                dimensions={"width": 5.0, "length": 6.0}
-            )
-            
-            self.current_pins = [
-                Pin(package_id=1, number="1", name="GND", electrical_type="Power"),
-                Pin(package_id=1, number="2", name="VCC", electrical_type="Power"),
-                Pin(package_id=1, number="3", name="INPUT", electrical_type="Input"),
-                Pin(package_id=1, number="4", name="OUTPUT", electrical_type="Output")
-            ]
+            if not extracted_data:
+                raise Exception("Extraction returned no data.")
+
+            self.current_component = extracted_data.get("component")
+            self.current_package = extracted_data.get("package")
+            self.current_pins = extracted_data.get("pins")
             
             # DEBUG: Print response
-            print(f"Response (Simulated): {self.current_component.model_dump_json()}")
+            if self.current_component:
+                print(f"Response: {self.current_component.model_dump_json()}")
             print("----------------------")
             
             self.update_ui_from_data()
@@ -239,7 +268,7 @@ class MainWindow(QMainWindow):
                     "number": pin.number,
                     "name": pin.name,
                     "type": pin.electrical_type,
-                    "description": "" # Description not in Pin model yet?
+                    "description": pin.description
                 })
             self.pin_editor.set_pins(pins_data)
             

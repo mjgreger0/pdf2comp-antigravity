@@ -65,54 +65,79 @@ class IngestionEngine:
                 r"(?i)pin\s+configuration",
                 r"(?i)pin\s+functions",
                 r"(?i)pin\s+description",
-                r"(?i)terminal\s+configuration"
+                r"(?i)terminal\s+configuration",
+                r"(?i)pinout"
             ],
             "package_dimensions": [
                 r"(?i)package\s+dimensions",
                 r"(?i)mechanical\s+data",
                 r"(?i)package\s+outline",
-                r"(?i)dimensions"
+                r"(?i)dimensions",
+                r"(?i)physical\s+dimensions"
             ],
             "ordering_information": [
                 r"(?i)ordering\s+information",
-                r"(?i)device\s+ordering"
+                r"(?i)device\s+ordering",
+                r"(?i)order\s+codes"
             ],
             "electrical_characteristics": [
                 r"(?i)electrical\s+characteristics",
-                r"(?i)specifications"
+                r"(?i)specifications",
+                r"(?i)dc\s+characteristics",
+                r"(?i)ac\s+characteristics"
+            ],
+            "description": [
+                r"(?i)description",
+                r"(?i)general\s+description",
+                r"(?i)overview"
+            ],
+            "features": [
+                r"(?i)features",
+                r"(?i)key\s+features"
             ]
         }
         
-        # Simple splitting by headers (lines starting with #)
-        # This is a naive implementation; a more robust one would use the AST
         lines = content.split('\n')
         current_section = "preamble"
         buffer = []
         
-        # Map headers to standard section names
-        header_map = {}
-        
         for line in lines:
-            if line.startswith('#'):
+            # Check for headers (Markdown #)
+            if line.strip().startswith('#'):
                 # Save previous section
                 if buffer:
-                    sections[current_section] = sections.get(current_section, "") + "\n".join(buffer) + "\n"
+                    # Append to existing section content if it already exists (to handle split sections)
+                    existing = sections.get(current_section, "")
+                    if existing:
+                        existing += "\n"
+                    sections[current_section] = existing + "\n".join(buffer)
                     buffer = []
                 
                 header_text = line.lstrip('#').strip()
-                current_section = header_text # Default to header text
+                
+                # Determine new section key
+                new_section_key = header_text # Default to header text
                 
                 # Check if header matches any known pattern
+                found_match = False
                 for key, regex_list in patterns.items():
                     for pattern in regex_list:
                         if re.search(pattern, header_text):
-                            current_section = key
+                            new_section_key = key
+                            found_match = True
                             break
+                    if found_match:
+                        break
+                
+                current_section = new_section_key
             else:
                 buffer.append(line)
                 
         # Save last section
         if buffer:
-            sections[current_section] = sections.get(current_section, "") + "\n".join(buffer)
+            existing = sections.get(current_section, "")
+            if existing:
+                existing += "\n"
+            sections[current_section] = existing + "\n".join(buffer)
             
         return sections

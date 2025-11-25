@@ -27,6 +27,12 @@ class TestEndToEnd(unittest.TestCase):
         self.db_patcher = patch('src.gui.main_window.DBManager')
         self.mock_db = self.db_patcher.start()
         
+        # Patch QSettings
+        self.settings_patcher = patch('src.gui.main_window.QSettings')
+        self.mock_settings_cls = self.settings_patcher.start()
+        self.mock_settings = self.mock_settings_cls.return_value
+        self.mock_settings.value.return_value = None # Default no last file
+
         # Initialize Window
         self.window = MainWindow()
         
@@ -37,6 +43,7 @@ class TestEndToEnd(unittest.TestCase):
         # Mock Backend
         self.window.ingestion_engine = MagicMock()
         self.window.llm_client = MagicMock()
+        self.window.extractor = MagicMock() # Mock the Extractor
         self.window.correction_logger = MagicMock()
         
         # Mock Generators
@@ -47,12 +54,13 @@ class TestEndToEnd(unittest.TestCase):
     def tearDown(self):
         self.db_patcher.stop()
         self.msg_patcher.stop()
+        self.settings_patcher.stop()
         # We don't destroy self.app because it might be needed for other tests
         # and QApplication is a singleton.
 
     def test_full_workflow(self):
         """
-        Simulate: Open PDF -> Extract (Mock) -> Modify -> Generate -> Save Correction
+        Simulate: Open PDF -> Process with LLM -> Modify -> Generate -> Save Correction
         """
         print("\n--- Starting End-to-End Test ---")
         
@@ -61,34 +69,65 @@ class TestEndToEnd(unittest.TestCase):
         # Create dummy PDF file if needed by viewer, or mock viewer
         self.window.pdf_viewer.load_document = MagicMock()
         
-        # Mock Ingestion Return
-        self.window.ingestion_engine.process_file.return_value = {
-            "content": "Full datasheet text...",
-            "sections": {"pin_configuration": "Pin 1: GND..."}
-        }
-        
-        # Mock LLM Return (Not currently called in MainWindow, but if it were)
-        # For now, MainWindow.load_datasheet populates dummy data.
-        # We will verify that data is populated.
-        
         print("Step 1: Loading Datasheet...")
         self.window.load_datasheet(pdf_path)
         
-        # Verify Ingestion called (if we implemented it to be called)
-        # self.window.ingestion_engine.process_file.assert_called() 
-        # (It's inside a try/catch in load_datasheet, and we mocked it)
+        # Verify Datasheet Loaded
+        self.assertIsNotNone(self.window.current_datasheet)
+        self.assertEqual(self.window.current_datasheet.filename, "dummy_datasheet.pdf")
         
-        # Verify Data Populated
-        self.assertIsNotNone(self.window.current_component)
-        self.assertEqual(self.window.current_component.part_number, "EXAMPLE-PART")
-        print(f"Verified Component: {self.window.current_component.part_number}")
+        # Verify Settings Saved
+        self.mock_settings.setValue.assert_called_with("last_opened_file", pdf_path)
+        print("Verified Last Opened File saved to settings.")
         
-        # 2. Simulate User Modification
-        print("Step 2: Modifying Data...")
+        # 2. Simulate LLM Processing
+        print("Step 2: Processing with LLM...")
+        
+        # Mock Extractor Return
+        mock_component = Component(
+            datasheet_id=1,
+            part_number="MOCKED-PART",
+            description="Mocked Description",
+            manufacturer="Mocked Mfg"
+        )
+        mock_package = Package(
+            component_id=1,
+            name="MOCKED-PKG",
+            package_type="SOIC",
+            dimensions={"width": 5.0}
+        )
+        mock_pins = [
+            Pin(package_id=1, number="1", name="GND", electrical_type="Power")
+        ]
+        
+        self.window.extractor.extract_all.return_value = {
+            "component": mock_component,
+            "package": mock_package,
+            "pins": mock_pins
+        }
+        
+        # We need to mock os.path.exists to simulate MD file existence or bypass it
+        with patch('os.path.exists') as mock_exists, \
+             patch('builtins.open', unittest.mock.mock_open(read_data="Mocked Content")) as mock_open:
+            
+            mock_exists.return_value = True # Pretend MD file exists
+            
+            self.window.process_with_llm()
+            
+            # Verify Extractor Called
+            self.window.extractor.extract_all.assert_called_once()
+            
+            # Verify Data Populated
+            self.assertIsNotNone(self.window.current_component)
+            self.assertEqual(self.window.current_component.part_number, "MOCKED-PART")
+            print(f"Verified Component: {self.window.current_component.part_number}")
+        
+        # 3. Simulate User Modification
+        print("Step 3: Modifying Data...")
         self.window.current_component.description = "Updated Description"
         
-        # 3. Simulate Generation
-        print("Step 3: Generating Files...")
+        # 4. Simulate Generation
+        print("Step 4: Generating Files...")
         
         # Mock Generator Returns
         self.window.symbol_gen.generate_symbol.return_value = "(kicad_symbol ...)"
@@ -102,8 +141,8 @@ class TestEndToEnd(unittest.TestCase):
         self.window.footprint_gen.generate_footprint.assert_called_once()
         print("Verified Generators called.")
         
-        # 4. Simulate Save Correction
-        print("Step 4: Saving Correction...")
+        # 5. Simulate Save Correction
+        print("Step 5: Saving Correction...")
         self.window.save_correction()
         
         # Verify Logger Called
