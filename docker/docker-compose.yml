@@ -21,7 +21,7 @@ services:
               capabilities: [gpu]
 
   trainer-service:
-    image: unsloth/unsloth-notebook:latest
+    image: unsloth/unsloth:latest
     container_name: trainer-service
     runtime: nvidia
     volumes:

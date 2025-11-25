@@ -1,33 +1,51 @@
-# Walkthrough - Phase 2: Backend Logic & LLM Integration
+# Output Generation Walkthrough
 
-## Changes Implemented
+This document details the implementation of the KiCAD file generators.
 
-### Backend Components
-- **`src/backend/llm_client.py`**: Implemented `LLMClient` to communicate with vLLM via OpenAI-compatible API. Handles JSON parsing and error logging.
-- **`src/backend/ingestion.py`**: Implemented `IngestionEngine` to parse MinerU output (Markdown/JSON) and identify key sections using heuristics.
-- **`src/backend/correction_logger.py`**: Implemented `CorrectionLogger` to log user corrections to the database for active learning.
+## Implemented Generators
 
-### Infrastructure
-- **`docker/docker-compose.yml`**: Created Docker Compose configuration for `llm-service` (vLLM) and `trainer-service` (Unsloth). Configured to use the shared model directory.
-- **`doc/setup.md`**: Added setup instructions including virtual environment usage.
+### 1. Symbol Generator
+- **File**: `src/generators/symbol_generator.py`
+- **Functionality**: Generates `.kicad_sym` files.
+- **Features**:
+    - Automatic pin grouping (Left: Input/Passive, Right: Output, Top/Bottom: Power).
+    - Dynamic symbol body sizing based on pin count.
+    - Standard KiCAD properties (Reference, Value, Footprint, Datasheet).
 
-### Model Setup
-- Downloaded `Qwen/Qwen2.5-Coder-32B-Instruct` to `/data/projects/ai/huggingface/models/Qwen/Qwen2.5-Coder-32B-Instruct`.
+### 2. Footprint Generator
+- **File**: `src/generators/footprint_generator.py`
+- **Functionality**: Generates `.kicad_mod` files.
+- **Features**:
+    - Supports QFN/QFP (Quad) and SOIC/SOP (Dual Row) packages.
+    - Calculates pad dimensions using simplified IPC-7351B formulas.
+    - Generates Courtyard and Silk Screen layers.
+
+### 3. Model Generator
+- **File**: `src/generators/model_generator.py`
+- **Functionality**: Generates 3D models (`.step`).
+- **Status**: **Requires `cadquery` library.**
+- **Features**:
+    - Parametric generation for Box, QFN, and SOIC shapes.
+    - Exports STEP files for mechanical integration.
 
 ## Verification Results
 
-### Automated Tests
-Ran `pytest` on the new backend components.
+Ran `tests/verify_generators.py` in the virtual environment.
 
-**Summary**:
-- `tests/test_llm_client.py`: **PASSED** (Mocked API calls)
-- `tests/test_ingestion.py`: **PASSED** (Markdown parsing)
-- `tests/test_correction_logger.py`: **PASSED** (Database logging)
+```
+[Symbol Generator]
+PASS: Header found
 
-### Manual Verification
-- **Model Download**: Verified file existence and size.
-- **Docker Config**: Verified syntax and volume mappings (static check).
+[Footprint Generator]
+PASS: Header found
+
+[Model Generator]
+PASS: Model generated in test_output
+PASS: STEP file exists
+```
+
+> [!NOTE]
+> The `ModelGenerator` requires `cadquery` to be installed in the environment (`pip install cadquery`). This has been installed and verified.
 
 ## Next Steps
-- Proceed to **Phase 3: GUI Implementation**.
-- Start the Docker services to verify full integration (requires GPU availability).
+- Proceed to Phase 5: Integration & Testing.

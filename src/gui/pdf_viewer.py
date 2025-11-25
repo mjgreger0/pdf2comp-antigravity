@@ -1,5 +1,5 @@
 import fitz  # PyMuPDF
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QLabel, QSizePolicy
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QLabel, QSizePolicy, QHBoxLayout, QPushButton, QLineEdit
 from PySide6.QtGui import QImage, QPixmap, QPainter, QColor, QBrush, QPen
 from PySide6.QtCore import Qt, QRectF, Signal
 
@@ -73,6 +73,28 @@ class PdfViewer(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
+        # Control Bar
+        self.control_layout = QHBoxLayout()
+        self.btn_prev = QPushButton("Previous")
+        self.btn_next = QPushButton("Next")
+        self.lbl_page = QLabel("Page: 0 / 0")
+        self.btn_zoom_in = QPushButton("Zoom In")
+        self.btn_zoom_out = QPushButton("Zoom Out")
+
+        self.btn_prev.clicked.connect(self.prev_page)
+        self.btn_next.clicked.connect(self.next_page)
+        self.btn_zoom_in.clicked.connect(self.zoom_in)
+        self.btn_zoom_out.clicked.connect(self.zoom_out)
+
+        self.control_layout.addWidget(self.btn_prev)
+        self.control_layout.addWidget(self.lbl_page)
+        self.control_layout.addWidget(self.btn_next)
+        self.control_layout.addStretch()
+        self.control_layout.addWidget(self.btn_zoom_out)
+        self.control_layout.addWidget(self.btn_zoom_in)
+
+        self.layout.addLayout(self.control_layout)
+
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setAlignment(Qt.AlignCenter)
@@ -99,6 +121,7 @@ class PdfViewer(QWidget):
             self.doc = fitz.open(file_path)
             self.current_page_index = 0
             self.render_page()
+            self.update_controls()
         except Exception as e:
             print(f"Error loading PDF: {e}")
 
@@ -121,6 +144,30 @@ class PdfViewer(QWidget):
         
         self.page_widget.set_page_image(pixmap, self.zoom_level)
 
+    def update_controls(self):
+        if not self.doc:
+            self.lbl_page.setText("Page: 0 / 0")
+            self.btn_prev.setEnabled(False)
+            self.btn_next.setEnabled(False)
+            return
+        
+        total_pages = len(self.doc)
+        self.lbl_page.setText(f"Page: {self.current_page_index + 1} / {total_pages}")
+        self.btn_prev.setEnabled(self.current_page_index > 0)
+        self.btn_next.setEnabled(self.current_page_index < total_pages - 1)
+
+    def prev_page(self):
+        if self.doc and self.current_page_index > 0:
+            self.current_page_index -= 1
+            self.render_page()
+            self.update_controls()
+
+    def next_page(self):
+        if self.doc and self.current_page_index < len(self.doc) - 1:
+            self.current_page_index += 1
+            self.render_page()
+            self.update_controls()
+
     def highlight_rects(self, rects, page_num=0):
         """
         Highlight specific rectangles on a page.
@@ -130,6 +177,7 @@ class PdfViewer(QWidget):
         if page_num != self.current_page_index:
             self.current_page_index = page_num
             self.render_page()
+            self.update_controls()
             
         highlights = [(r, QColor(255, 255, 0, 100)) for r in rects] # Yellow, semi-transparent
         self.page_widget.set_highlights(highlights)
